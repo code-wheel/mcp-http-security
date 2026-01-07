@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/code-wheel/mcp-http-security/actions/workflows/ci.yml/badge.svg)](https://github.com/code-wheel/mcp-http-security/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/code-wheel/mcp-http-security/graph/badge.svg)](https://codecov.io/gh/code-wheel/mcp-http-security)
+[![PHPStan](https://img.shields.io/badge/PHPStan-level%209-brightgreen.svg)](https://phpstan.org/)
 [![Latest Stable Version](https://poser.pugx.org/code-wheel/mcp-http-security/v)](https://packagist.org/packages/code-wheel/mcp-http-security)
+[![PHP Version](https://img.shields.io/packagist/php-v/code-wheel/mcp-http-security.svg)](https://packagist.org/packages/code-wheel/mcp-http-security)
 [![License](https://poser.pugx.org/code-wheel/mcp-http-security/license)](https://packagist.org/packages/code-wheel/mcp-http-security)
 
 Secure HTTP transport wrapper for MCP (Model Context Protocol) servers in PHP.
@@ -288,6 +290,38 @@ See [drupal/mcp_tools](https://www.drupal.org/project/mcp_tools) which uses this
 3. **Rotate keys** - Use TTL and rotate keys regularly
 4. **Least privilege** - Grant minimal scopes needed
 5. **Audit logging** - Log key usage for security monitoring
+
+## Examples
+
+See the `examples/` directory for complete working examples:
+
+- **[slim4-integration.php](examples/slim4-integration.php)** - Full Slim 4 framework integration
+- **[standalone-validation.php](examples/standalone-validation.php)** - No-framework usage
+- **[cli-key-manager.php](examples/cli-key-manager.php)** - CLI tool for managing API keys
+
+## Development
+
+```bash
+# Run tests
+composer test
+
+# Run tests with coverage
+composer test:coverage
+
+# Static analysis (PHPStan level 9)
+composer analyse
+
+# Mutation testing
+composer infection
+
+# Performance benchmarks
+composer benchmark
+
+# Run all CI checks
+composer ci
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ## License
 

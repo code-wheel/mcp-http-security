@@ -1,7 +1,11 @@
 /vendor/
 /.phpunit.cache/
+/.phpstan-cache/
 composer.lock
 composer.phar
 .phpunit.result.cache
 coverage.xml
 /coverage-html/
+/coverage/
+infection.log
+.phpbench/

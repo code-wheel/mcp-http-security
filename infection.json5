@@ -1,0 +1,23 @@
+{
+    "$schema": "https://raw.githubusercontent.com/infection/infection/0.29.0/resources/schema.json",
+    "source": {
+        "directories": ["src"]
+    },
+    "timeout": 30,
+    "logs": {
+        "text": "infection.log",
+        "badge": {
+            "branch": "master"
+        }
+    },
+    "mutators": {
+        "@default": true,
+        // Disable some noisy mutators for better signal
+        "CastInt": false,
+        "CastString": false
+    },
+    "minMsi": 80,
+    "minCoveredMsi": 90,
+    "testFramework": "phpunit",
+    "testFrameworkOptions": "--testsuite=unit"
+}
