@@ -292,6 +292,55 @@ final class SecurityMiddlewareTest extends TestCase
         $this->assertSame(['read', 'write'], $attributesSet['mcp.scopes']);
     }
 
+    public function testProcessReturns401WhenBearerTokenIsEmpty(): void
+    {
+        $this->requestValidator->method('validate');
+
+        // Bearer followed by whitespace only should be treated as no token
+        $request = $this->createRequest(['Authorization' => 'Bearer    ']);
+
+        $this->responseFactory->expects($this->once())
+            ->method('createResponse')
+            ->with(401)
+            ->willReturn($this->errorResponse);
+
+        $middleware = new SecurityMiddleware(
+            $this->apiKeyManager,
+            $this->requestValidator,
+            $this->responseFactory,
+        );
+
+        $middleware->process($request, $this->handler);
+    }
+
+    public function testProcessPassesAuthWhenScopesConfiguredAndMatch(): void
+    {
+        $apiKey = new ApiKey('key1', 'Test', ['read', 'write'], time());
+
+        $this->requestValidator->method('validate');
+        $this->apiKeyManager->method('validate')->willReturn($apiKey);
+
+        $request = $this->createRequest(['Authorization' => 'Bearer valid-token']);
+        $request->method('withAttribute')->willReturnSelf();
+
+        $config = new SecurityConfig(
+            requireAuth: true,
+            allowedScopes: ['read'], // Key has 'read' scope
+        );
+
+        $this->handler->expects($this->once())->method('handle');
+
+        $middleware = new SecurityMiddleware(
+            $this->apiKeyManager,
+            $this->requestValidator,
+            $this->responseFactory,
+            $config,
+        );
+
+        $response = $middleware->process($request, $this->handler);
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
     /**
      * @param array<string, string> $headers
      */

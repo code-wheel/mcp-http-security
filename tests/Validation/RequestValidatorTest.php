@@ -205,8 +205,91 @@ final class RequestValidatorTest extends TestCase
         $this->assertTrue($validator->isValid($request));
     }
 
+    public function testValidateIgnoresEmptyXForwardedFor(): void
+    {
+        $validator = new RequestValidator(
+            allowedIps: ['192.168.1.1'],
+            allowedOrigins: [],
+        );
+
+        // Empty X-Forwarded-For should fall back to REMOTE_ADDR
+        $request = $this->createRequest(
+            serverParams: ['REMOTE_ADDR' => '192.168.1.1'],
+            headers: ['X-Forwarded-For' => ''],
+        );
+
+        $validator->validate($request);
+        $this->assertTrue(true);
+    }
+
+    public function testValidateIgnoresWhitespaceOnlyXForwardedFor(): void
+    {
+        $validator = new RequestValidator(
+            allowedIps: ['192.168.1.1'],
+            allowedOrigins: [],
+        );
+
+        // Whitespace-only X-Forwarded-For should fall back to REMOTE_ADDR
+        $request = $this->createRequest(
+            serverParams: ['REMOTE_ADDR' => '192.168.1.1'],
+            headers: ['X-Forwarded-For' => '   ,   '],
+        );
+
+        $validator->validate($request);
+        $this->assertTrue(true);
+    }
+
+    public function testValidateHandlesNonStringRemoteAddr(): void
+    {
+        $validator = new RequestValidator(
+            allowedIps: ['127.0.0.1'],
+            allowedOrigins: [],
+        );
+
+        // Non-string REMOTE_ADDR should result in null IP
+        $request = $this->createRequest(
+            serverParams: ['REMOTE_ADDR' => ['127.0.0.1']],
+        );
+
+        // Should pass - no valid IP means we can't validate
+        $validator->validate($request);
+        $this->assertTrue(true);
+    }
+
+    public function testValidateHandlesEmptyRemoteAddr(): void
+    {
+        $validator = new RequestValidator(
+            allowedIps: ['127.0.0.1'],
+            allowedOrigins: [],
+        );
+
+        // Empty string REMOTE_ADDR should result in null IP
+        $request = $this->createRequest(
+            serverParams: ['REMOTE_ADDR' => ''],
+        );
+
+        // Should pass - no valid IP means we can't validate
+        $validator->validate($request);
+        $this->assertTrue(true);
+    }
+
+    public function testValidateWithHostHeaderWithoutPort(): void
+    {
+        $validator = new RequestValidator(
+            allowedIps: [],
+            allowedOrigins: ['example.com'],
+        );
+
+        $request = $this->createRequest(
+            headers: ['Host' => 'example.com'],
+        );
+
+        $validator->validate($request);
+        $this->assertTrue(true);
+    }
+
     /**
-     * @param array<string, string> $serverParams
+     * @param array<string, mixed> $serverParams
      * @param array<string, string> $headers
      */
     private function createRequest(array $serverParams = [], array $headers = []): ServerRequestInterface

@@ -257,6 +257,72 @@ final class ApiKeyManagerTest extends TestCase
 
         $this->assertNotNull($apiKey);
     }
+
+    public function testListKeysSkipsNonArrayRecords(): void
+    {
+        // Use a custom storage that can return mixed types
+        $storage = new CorruptibleStorage();
+        $manager = new ApiKeyManager($storage, $this->clock, 'pepper');
+
+        // Create a valid key first
+        $result = $manager->createKey('Valid', ['read']);
+
+        // Corrupt the storage with a non-array value
+        $storage->corruptKey('bad_key', 'not an array');
+
+        $keys = $manager->listKeys();
+
+        // Should only return the valid key, skipping corrupted one
+        $this->assertCount(1, $keys);
+        $this->assertArrayHasKey($result['key_id'], $keys);
+    }
+}
+
+/**
+ * Storage that allows corrupting data for testing edge cases.
+ */
+final class CorruptibleStorage implements \CodeWheel\McpSecurity\ApiKey\Storage\StorageInterface
+{
+    /** @var array<string, mixed> */
+    private array $data = [];
+
+    public function getAll(): array
+    {
+        return $this->data;
+    }
+
+    public function setAll(array $keys): void
+    {
+        $this->data = $keys;
+    }
+
+    public function get(string $keyId): ?array
+    {
+        $value = $this->data[$keyId] ?? null;
+        return is_array($value) ? $value : null;
+    }
+
+    public function set(string $keyId, array $data): void
+    {
+        $this->data[$keyId] = $data;
+    }
+
+    public function delete(string $keyId): bool
+    {
+        if (!isset($this->data[$keyId])) {
+            return false;
+        }
+        unset($this->data[$keyId]);
+        return true;
+    }
+
+    /**
+     * Corrupt a key with a non-array value for testing.
+     */
+    public function corruptKey(string $keyId, mixed $value): void
+    {
+        $this->data[$keyId] = $value;
+    }
 }
 
 /**

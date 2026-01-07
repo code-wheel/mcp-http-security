@@ -143,4 +143,122 @@ final class PdoStorageTest extends TestCase
 
         $this->assertSame($data, $this->storage->getAll());
     }
+
+    public function testSetAllRollsBackOnError(): void
+    {
+        // Store initial data
+        $this->storage->set('existing', ['label' => 'Existing']);
+
+        // Create a mock PDO that will fail during insert
+        $mockPdo = $this->createMock(PDO::class);
+        $mockPdo->method('getAttribute')->willReturn('sqlite');
+        $mockPdo->method('beginTransaction')->willReturn(true);
+        $mockPdo->method('exec')->willReturn(0);
+        $mockPdo->method('prepare')->willThrowException(new \PDOException('Simulated failure'));
+        $mockPdo->expects($this->once())->method('rollBack');
+
+        $storage = new PdoStorage($mockPdo, 'test_keys');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to store keys');
+        $storage->setAll(['new' => ['label' => 'New']]);
+    }
+
+    public function testGetReturnsNullForInvalidJson(): void
+    {
+        // Manually insert invalid JSON data
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO mcp_api_keys (key_id, data) VALUES (:key_id, :data)"
+        );
+        $stmt->execute(['key_id' => 'invalid', 'data' => 'not valid json']);
+
+        $result = $this->storage->get('invalid');
+        $this->assertNull($result);
+    }
+
+    public function testGetAllSkipsInvalidJsonRows(): void
+    {
+        // Insert one valid and one invalid row
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO mcp_api_keys (key_id, data) VALUES (:key_id, :data)"
+        );
+        $stmt->execute(['key_id' => 'valid', 'data' => '{"label": "Valid"}']);
+        $stmt->execute(['key_id' => 'invalid', 'data' => 'not json']);
+
+        $all = $this->storage->getAll();
+
+        $this->assertCount(1, $all);
+        $this->assertArrayHasKey('valid', $all);
+        $this->assertArrayNotHasKey('invalid', $all);
+    }
+
+    public function testEnsureTableForMysql(): void
+    {
+        $mockPdo = $this->createMock(PDO::class);
+        $mockPdo->method('getAttribute')
+            ->with(PDO::ATTR_DRIVER_NAME)
+            ->willReturn('mysql');
+        $mockPdo->expects($this->once())
+            ->method('exec')
+            ->with($this->stringContains('JSON NOT NULL'));
+
+        $storage = new PdoStorage($mockPdo, 'mysql_keys');
+        $storage->ensureTable();
+    }
+
+    public function testEnsureTableForPostgres(): void
+    {
+        $mockPdo = $this->createMock(PDO::class);
+        $mockPdo->method('getAttribute')
+            ->with(PDO::ATTR_DRIVER_NAME)
+            ->willReturn('pgsql');
+        $mockPdo->expects($this->once())
+            ->method('exec')
+            ->with($this->stringContains('JSONB NOT NULL'));
+
+        $storage = new PdoStorage($mockPdo, 'pgsql_keys');
+        $storage->ensureTable();
+    }
+
+    public function testSetWithMysqlFallback(): void
+    {
+        // Create a mock that simulates the SQLite CONFLICT error on first try
+        $callCount = 0;
+        $mockStmt = $this->createMock(\PDOStatement::class);
+        $mockStmt->method('execute')
+            ->willReturnCallback(function () use (&$callCount) {
+                $callCount++;
+                if ($callCount === 1) {
+                    throw new \PDOException('SQLSTATE: CONFLICT error');
+                }
+                return true;
+            });
+
+        $mockPdo = $this->createMock(PDO::class);
+        $mockPdo->method('getAttribute')->willReturn('mysql');
+        $mockPdo->method('prepare')->willReturn($mockStmt);
+
+        $storage = new PdoStorage($mockPdo, 'mysql_keys');
+        $storage->set('key1', ['label' => 'Test']);
+
+        // Should have called execute twice (first failed, second succeeded)
+        $this->assertSame(2, $callCount);
+    }
+
+    public function testSetRethrowsNonConflictException(): void
+    {
+        $mockStmt = $this->createMock(\PDOStatement::class);
+        $mockStmt->method('execute')
+            ->willThrowException(new \PDOException('Connection lost'));
+
+        $mockPdo = $this->createMock(PDO::class);
+        $mockPdo->method('getAttribute')->willReturn('sqlite');
+        $mockPdo->method('prepare')->willReturn($mockStmt);
+
+        $storage = new PdoStorage($mockPdo, 'test_keys');
+
+        $this->expectException(\PDOException::class);
+        $this->expectExceptionMessage('Connection lost');
+        $storage->set('key1', ['label' => 'Test']);
+    }
 }

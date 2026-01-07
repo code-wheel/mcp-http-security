@@ -75,4 +75,63 @@ final class OriginValidatorTest extends TestCase
 
         $this->assertFalse($validator->isAllowed(''));
     }
+
+    public function testEmptyPatternInAllowlist(): void
+    {
+        // Empty/whitespace patterns should be skipped
+        $validator = new OriginValidator(['', '   ', 'example.com']);
+
+        $this->assertTrue($validator->isAllowed('example.com'));
+        $this->assertFalse($validator->isAllowed('other.com'));
+    }
+
+    public function testWhitespaceOnlyHostnameNotAllowed(): void
+    {
+        $validator = new OriginValidator(['example.com']);
+
+        $this->assertFalse($validator->isAllowed('   '));
+    }
+
+    public function testExtractHostnameFromInvalidUrl(): void
+    {
+        $validator = new OriginValidator([]);
+
+        // URL with scheme but no host
+        $this->assertNull($validator->extractHostname('file:///path/to/file'));
+        // Just a scheme with empty host
+        $this->assertNull($validator->extractHostname('http://'));
+    }
+
+    public function testTrimsWhitespaceInAllowlist(): void
+    {
+        $validator = new OriginValidator(['  example.com  ', '  *.test.com  ']);
+
+        $this->assertTrue($validator->isAllowed('example.com'));
+        $this->assertTrue($validator->isAllowed('api.test.com'));
+    }
+
+    public function testWildcardDoesNotMatchRoot(): void
+    {
+        $validator = new OriginValidator(['*.']);
+
+        // Wildcard with just a dot shouldn't match anything meaningful
+        $this->assertFalse($validator->isAllowed('example.com'));
+    }
+
+    public function testWildcardWithEmptySuffix(): void
+    {
+        // Pattern '*.' after removing '*' gives just '.'
+        $validator = new OriginValidator(['*.']);
+
+        $this->assertFalse($validator->isAllowed('example'));
+        $this->assertFalse($validator->isAllowed('example.com'));
+    }
+
+    public function testExtractHostnameLowercases(): void
+    {
+        $validator = new OriginValidator([]);
+
+        $this->assertSame('example.com', $validator->extractHostname('HTTPS://EXAMPLE.COM/path'));
+        $this->assertSame('example.com', $validator->extractHostname('EXAMPLE.COM'));
+    }
 }

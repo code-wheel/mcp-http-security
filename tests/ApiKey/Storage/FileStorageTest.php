@@ -149,4 +149,56 @@ final class FileStorageTest extends TestCase
         $storage2 = new FileStorage($this->filePath);
         $this->assertSame($data, $storage2->getAll());
     }
+
+    public function testSetAllThrowsOnWriteFailure(): void
+    {
+        // Create a directory with the file name (can't write to a directory)
+        $dirAsFile = $this->tempDir . '/blocked';
+        mkdir($dirAsFile, 0755);
+
+        $storage = new FileStorage($dirAsFile);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to write file');
+        $storage->setAll(['key' => ['label' => 'Test']]);
+
+        // Cleanup
+        rmdir($dirAsFile);
+    }
+
+    public function testEnsureDirectoryThrowsOnFailure(): void
+    {
+        // Create a file where a directory should be
+        $blockedPath = $this->tempDir . '/blocked_file';
+        file_put_contents($blockedPath, 'blocking content');
+
+        // Try to create storage in a subdirectory of the file (impossible)
+        $storage = new FileStorage($blockedPath . '/subdir/keys.json');
+
+        $this->expectException(\RuntimeException::class);
+        $storage->setAll(['key' => ['label' => 'Test']]);
+
+        // Cleanup
+        unlink($blockedPath);
+    }
+
+    public function testGetAllThrowsOnUnreadableFile(): void
+    {
+        // Create file then make it unreadable
+        file_put_contents($this->filePath, '{"test": "data"}');
+        chmod($this->filePath, 0000);
+
+        $storage = new FileStorage($this->filePath);
+
+        // This should throw because file_get_contents returns false
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to read file');
+
+        try {
+            $storage->getAll();
+        } finally {
+            // Restore permissions for cleanup
+            chmod($this->filePath, 0644);
+        }
+    }
 }
