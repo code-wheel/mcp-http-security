@@ -136,6 +136,127 @@ final class ApiKeyManagerTest extends TestCase
         $this->assertTrue($apiKey->hasAllScopes(['read', 'write']));
         $this->assertFalse($apiKey->hasAllScopes(['read', 'admin']));
     }
+
+    public function testCreateKeyWithEmptyLabelUsesDefault(): void
+    {
+        $result = $this->manager->createKey('', ['read']);
+        $apiKey = $this->manager->getKey($result['key_id']);
+
+        $this->assertSame('Unnamed key', $apiKey->label);
+    }
+
+    public function testCreateKeyWithWhitespaceOnlyLabelUsesDefault(): void
+    {
+        $result = $this->manager->createKey('   ', ['read']);
+        $apiKey = $this->manager->getKey($result['key_id']);
+
+        $this->assertSame('Unnamed key', $apiKey->label);
+    }
+
+    public function testValidateReturnsNullForWrongPrefix(): void
+    {
+        $result = $this->manager->createKey('Test', ['read']);
+        $apiKey = $result['api_key'];
+
+        // Change prefix from 'mcp' to 'wrong'
+        $wrongPrefix = str_replace('mcp.', 'wrong.', $apiKey);
+
+        $this->assertNull($this->manager->validate($wrongPrefix));
+    }
+
+    public function testValidateReturnsNullForEmptyKeyId(): void
+    {
+        $this->assertNull($this->manager->validate('mcp..secret'));
+    }
+
+    public function testValidateReturnsNullForEmptySecret(): void
+    {
+        $this->assertNull($this->manager->validate('mcp.keyid.'));
+    }
+
+    public function testValidateReturnsNullForWrongSecret(): void
+    {
+        $result = $this->manager->createKey('Test', ['read']);
+        $keyId = $result['key_id'];
+
+        // Use correct prefix and keyId but wrong secret
+        $wrongSecret = "mcp.{$keyId}.wrongsecret";
+
+        $this->assertNull($this->manager->validate($wrongSecret));
+    }
+
+    public function testValidateReturnsNullForMissingHash(): void
+    {
+        // Manually add a record without hash
+        $this->storage->set('nohash', [
+            'label' => 'No Hash',
+            'scopes' => ['read'],
+            'created' => time(),
+        ]);
+
+        $this->assertNull($this->manager->validate('mcp.nohash.anysecret'));
+    }
+
+    public function testListKeysSortsById(): void
+    {
+        // Create keys - they will have random IDs
+        $this->manager->createKey('Key A', ['read']);
+        $this->manager->createKey('Key B', ['write']);
+        $this->manager->createKey('Key C', ['admin']);
+
+        $keys = $this->manager->listKeys();
+
+        // Verify keys are sorted by ID
+        $keyIds = array_keys($keys);
+        $sortedKeyIds = $keyIds;
+        sort($sortedKeyIds);
+
+        $this->assertSame($sortedKeyIds, $keyIds);
+    }
+
+    public function testGetKeyReturnsNullForNonexistentKey(): void
+    {
+        $this->assertNull($this->manager->getKey('nonexistent'));
+    }
+
+    public function testCreateKeyDeduplicatesScopes(): void
+    {
+        $result = $this->manager->createKey('Test', ['read', 'write', 'read', 'admin', 'write']);
+        $apiKey = $this->manager->getKey($result['key_id']);
+
+        $this->assertCount(3, $apiKey->scopes);
+        $this->assertTrue($apiKey->hasScope('read'));
+        $this->assertTrue($apiKey->hasScope('write'));
+        $this->assertTrue($apiKey->hasScope('admin'));
+    }
+
+    public function testCustomPrefixIsUsed(): void
+    {
+        $manager = new ApiKeyManager(
+            storage: $this->storage,
+            clock: $this->clock,
+            pepper: 'test',
+            keyPrefix: 'custom',
+        );
+
+        $result = $manager->createKey('Test', ['read']);
+
+        $this->assertStringStartsWith('custom.', $result['api_key']);
+
+        // Should validate with the custom prefix
+        $apiKey = $manager->validate($result['api_key']);
+        $this->assertNotNull($apiKey);
+    }
+
+    public function testValidateTrimsWhitespace(): void
+    {
+        $result = $this->manager->createKey('Test', ['read']);
+
+        // Add whitespace around the key
+        $apiKey = $this->manager->validate("  {$result['api_key']}  ");
+
+        $this->assertNotNull($apiKey);
+    }
 }
 
 /**
