@@ -7,18 +7,18 @@ namespace CodeWheel\McpSecurity\ApiKey;
 /**
  * Value object representing a validated API key.
  */
-final readonly class ApiKey
+final class ApiKey
 {
     /**
      * @param string[] $scopes
      */
     public function __construct(
-        public string $keyId,
-        public string $label,
-        public array $scopes,
-        public int $created,
-        public ?int $lastUsed = null,
-        public ?int $expires = null,
+        public readonly string $keyId,
+        public readonly string $label,
+        public readonly array $scopes,
+        public readonly int $created,
+        public readonly ?int $lastUsed = null,
+        public readonly ?int $expires = null,
     ) {}
 
     /**

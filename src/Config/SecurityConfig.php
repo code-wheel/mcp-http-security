@@ -7,7 +7,7 @@ namespace CodeWheel\McpSecurity\Config;
 /**
  * Configuration for security middleware.
  */
-final readonly class SecurityConfig
+final class SecurityConfig
 {
     /**
      * @param bool $requireAuth Whether API key authentication is required
@@ -19,12 +19,12 @@ final readonly class SecurityConfig
      * @param bool $silentFail Return 404 instead of 401/403 (hide security rules)
      */
     public function __construct(
-        public bool $requireAuth = true,
-        public array $allowedScopes = [],
-        public string $authHeader = 'Authorization',
-        public string $apiKeyHeader = 'X-MCP-Api-Key',
-        public string $scopesAttribute = 'mcp.scopes',
-        public string $keyAttribute = 'mcp.key',
-        public bool $silentFail = false,
+        public readonly bool $requireAuth = true,
+        public readonly array $allowedScopes = [],
+        public readonly string $authHeader = 'Authorization',
+        public readonly string $apiKeyHeader = 'X-MCP-Api-Key',
+        public readonly string $scopesAttribute = 'mcp.scopes',
+        public readonly string $keyAttribute = 'mcp.key',
+        public readonly bool $silentFail = false,
     ) {}
 }

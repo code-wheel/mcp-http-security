@@ -61,8 +61,10 @@ final class SecurityConfigTest extends TestCase
     {
         $config = new SecurityConfig();
 
-        // Verify properties are readonly by checking they exist
+        // Verify properties are readonly by checking each property
         $reflection = new \ReflectionClass($config);
-        $this->assertTrue($reflection->isReadOnly());
+        foreach ($reflection->getProperties() as $property) {
+            $this->assertTrue($property->isReadOnly(), "Property {$property->getName()} should be readonly");
+        }
     }
 }
