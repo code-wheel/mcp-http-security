@@ -32,9 +32,17 @@ final class PdoStorage implements StorageInterface
 
         $keys = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $data = json_decode($row['data'], true);
+            if (!is_array($row)) {
+                continue;
+            }
+            $keyId = $row['key_id'] ?? null;
+            $rawData = $row['data'] ?? null;
+            if (!is_string($keyId) || !is_string($rawData)) {
+                continue;
+            }
+            $data = json_decode($rawData, true);
             if (is_array($data)) {
-                $keys[$row['key_id']] = $data;
+                $keys[$keyId] = $data;
             }
         }
 
@@ -73,11 +81,16 @@ final class PdoStorage implements StorageInterface
         $stmt->execute(['key_id' => $keyId]);
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row) {
+        if (!is_array($row)) {
             return null;
         }
 
-        $data = json_decode($row['data'], true);
+        $rawData = $row['data'] ?? null;
+        if (!is_string($rawData)) {
+            return null;
+        }
+
+        $data = json_decode($rawData, true);
         return is_array($data) ? $data : null;
     }
 

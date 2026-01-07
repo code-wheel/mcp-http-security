@@ -104,7 +104,12 @@ final class ApiKeyManager implements ApiKeyManagerInterface
         }
 
         $record = $this->storage->get($keyId);
-        if (!is_array($record) || empty($record['hash'])) {
+        if (!is_array($record)) {
+            return null;
+        }
+
+        $hash = $record['hash'] ?? null;
+        if (!is_string($hash) || $hash === '') {
             return null;
         }
 
@@ -114,7 +119,7 @@ final class ApiKeyManager implements ApiKeyManagerInterface
             return null;
         }
 
-        $expected = (string) $record['hash'];
+        $expected = $hash;
         $actual = $this->hashSecret($secret);
 
         if (!hash_equals($expected, $actual)) {
@@ -133,13 +138,19 @@ final class ApiKeyManager implements ApiKeyManagerInterface
      */
     private function recordToApiKey(string $keyId, array $record): ApiKey
     {
+        $label = $record['label'] ?? '';
+        $scopes = $record['scopes'] ?? [];
+        $created = $record['created'] ?? 0;
+        $lastUsed = $record['last_used'] ?? null;
+        $expires = $record['expires'] ?? null;
+
         return new ApiKey(
             keyId: $keyId,
-            label: (string) ($record['label'] ?? ''),
-            scopes: array_values(array_filter($record['scopes'] ?? [])),
-            created: (int) ($record['created'] ?? 0),
-            lastUsed: isset($record['last_used']) ? (int) $record['last_used'] : null,
-            expires: isset($record['expires']) ? (int) $record['expires'] : null,
+            label: is_string($label) ? $label : '',
+            scopes: is_array($scopes) ? array_values(array_filter($scopes, 'is_string')) : [],
+            created: is_int($created) ? $created : (is_numeric($created) ? (int) $created : 0),
+            lastUsed: is_int($lastUsed) ? $lastUsed : (is_numeric($lastUsed) ? (int) $lastUsed : null),
+            expires: is_int($expires) ? $expires : (is_numeric($expires) ? (int) $expires : null),
         );
     }
 
