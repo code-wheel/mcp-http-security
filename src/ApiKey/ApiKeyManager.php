@@ -63,6 +63,8 @@ final class ApiKeyManager implements ApiKeyManagerInterface
             if (!is_array($record)) {
                 continue;
             }
+            // Cast keyId to string in case PHP converted numeric-looking keys to int
+            $keyId = (string) $keyId;
             $keys[$keyId] = $this->recordToApiKey($keyId, $record);
         }
 
