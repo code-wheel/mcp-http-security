@@ -11,6 +11,8 @@ final class FileStorageTest extends TestCase
 {
     private string $tempDir;
     private string $filePath;
+    /** @var string[] */
+    private array $cleanupPaths = [];
 
     protected function setUp(): void
     {
@@ -21,11 +23,23 @@ final class FileStorageTest extends TestCase
 
     protected function tearDown(): void
     {
+        // Clean up any registered paths first
+        foreach (array_reverse($this->cleanupPaths) as $path) {
+            if (is_file($path)) {
+                @chmod($path, 0644); // Restore permissions if needed
+                @unlink($path);
+            } elseif (is_dir($path)) {
+                @rmdir($path);
+            }
+        }
+        $this->cleanupPaths = [];
+
+        // Clean up main test file and directory
         if (file_exists($this->filePath)) {
-            unlink($this->filePath);
+            @unlink($this->filePath);
         }
         if (is_dir($this->tempDir)) {
-            rmdir($this->tempDir);
+            @rmdir($this->tempDir);
         }
     }
 
@@ -74,10 +88,10 @@ final class FileStorageTest extends TestCase
 
         $this->assertFileExists($nestedPath);
 
-        // Cleanup
-        unlink($nestedPath);
-        rmdir(dirname($nestedPath));
-        rmdir(dirname(dirname($nestedPath)));
+        // Register for cleanup in reverse order
+        $this->cleanupPaths[] = $nestedPath;
+        $this->cleanupPaths[] = dirname($nestedPath);
+        $this->cleanupPaths[] = dirname(dirname($nestedPath));
     }
 
     public function testGetReturnsNullForMissingKey(): void
@@ -155,15 +169,15 @@ final class FileStorageTest extends TestCase
         // Create a directory with the file name (can't write to a directory)
         $dirAsFile = $this->tempDir . '/blocked';
         mkdir($dirAsFile, 0755);
+        $this->cleanupPaths[] = $dirAsFile;
 
         $storage = new FileStorage($dirAsFile);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Failed to write file');
-        $storage->setAll(['key' => ['label' => 'Test']]);
 
-        // Cleanup
-        rmdir($dirAsFile);
+        // Suppress warning - we're testing the exception handling
+        @$storage->setAll(['key' => ['label' => 'Test']]);
     }
 
     public function testEnsureDirectoryThrowsOnFailure(): void
@@ -171,34 +185,34 @@ final class FileStorageTest extends TestCase
         // Create a file where a directory should be
         $blockedPath = $this->tempDir . '/blocked_file';
         file_put_contents($blockedPath, 'blocking content');
+        $this->cleanupPaths[] = $blockedPath;
 
         // Try to create storage in a subdirectory of the file (impossible)
         $storage = new FileStorage($blockedPath . '/subdir/keys.json');
 
         $this->expectException(\RuntimeException::class);
-        $storage->setAll(['key' => ['label' => 'Test']]);
 
-        // Cleanup
-        unlink($blockedPath);
+        // Suppress warning - we're testing the exception handling
+        @$storage->setAll(['key' => ['label' => 'Test']]);
     }
 
     public function testGetAllThrowsOnUnreadableFile(): void
     {
+        // Skip on CI where running as root (can read anything) or Windows
+        if (DIRECTORY_SEPARATOR === '\\' || (function_exists('posix_getuid') && posix_getuid() === 0)) {
+            $this->markTestSkipped('Cannot test file permissions on Windows or as root');
+        }
+
         // Create file then make it unreadable
         file_put_contents($this->filePath, '{"test": "data"}');
         chmod($this->filePath, 0000);
 
         $storage = new FileStorage($this->filePath);
 
-        // This should throw because file_get_contents returns false
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Failed to read file');
 
-        try {
-            $storage->getAll();
-        } finally {
-            // Restore permissions for cleanup
-            chmod($this->filePath, 0644);
-        }
+        // Suppress warning - we're testing the exception handling
+        @$storage->getAll();
     }
 }
