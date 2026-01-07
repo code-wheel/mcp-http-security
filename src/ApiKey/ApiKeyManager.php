@@ -12,12 +12,13 @@ use Psr\Clock\ClockInterface;
  */
 final class ApiKeyManager implements ApiKeyManagerInterface
 {
-    private const KEY_PREFIX = 'mcp';
+    private const DEFAULT_PREFIX = 'mcp';
 
     public function __construct(
         private readonly StorageInterface $storage,
         private readonly ClockInterface $clock,
         private readonly string $pepper = '',
+        private readonly string $keyPrefix = self::DEFAULT_PREFIX,
     ) {}
 
     public function createKey(string $label, array $scopes, ?int $ttlSeconds = null): array
@@ -49,7 +50,7 @@ final class ApiKeyManager implements ApiKeyManagerInterface
 
         return [
             'key_id' => $keyId,
-            'api_key' => self::KEY_PREFIX . '.' . $keyId . '.' . $secret,
+            'api_key' => $this->keyPrefix . '.' . $keyId . '.' . $secret,
         ];
     }
 
@@ -96,7 +97,7 @@ final class ApiKeyManager implements ApiKeyManagerInterface
         }
 
         [$prefix, $keyId, $secret] = $parts;
-        if ($prefix !== self::KEY_PREFIX || $keyId === '' || $secret === '') {
+        if ($prefix !== $this->keyPrefix || $keyId === '' || $secret === '') {
             return null;
         }
 
