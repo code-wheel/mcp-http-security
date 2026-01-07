@@ -1,5 +1,10 @@
 # MCP HTTP Security
 
+[![CI](https://github.com/code-wheel/mcp-http-security/actions/workflows/ci.yml/badge.svg)](https://github.com/code-wheel/mcp-http-security/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/code-wheel/mcp-http-security/graph/badge.svg)](https://codecov.io/gh/code-wheel/mcp-http-security)
+[![Latest Stable Version](https://poser.pugx.org/code-wheel/mcp-http-security/v)](https://packagist.org/packages/code-wheel/mcp-http-security)
+[![License](https://poser.pugx.org/code-wheel/mcp-http-security/license)](https://packagist.org/packages/code-wheel/mcp-http-security)
+
 Secure HTTP transport wrapper for MCP (Model Context Protocol) servers in PHP.
 
 Provides production-ready security components that don't exist elsewhere in the PHP MCP ecosystem:

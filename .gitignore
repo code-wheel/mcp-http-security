@@ -2,3 +2,5 @@
 /.phpunit.cache/
 composer.lock
 .phpunit.result.cache
+coverage.xml
+/coverage-html/
