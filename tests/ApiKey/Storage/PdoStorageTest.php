@@ -176,6 +176,24 @@ final class PdoStorageTest extends TestCase
         $this->assertNull($result);
     }
 
+    public function testGetReturnsNullForNonStringData(): void
+    {
+        // Mock PDOStatement to return a row with non-string data
+        $mockStmt = $this->createMock(\PDOStatement::class);
+        $mockStmt->method('execute')->willReturn(true);
+        $mockStmt->method('fetch')
+            ->willReturn(['data' => 123]); // Integer instead of string
+
+        $mockPdo = $this->createMock(PDO::class);
+        $mockPdo->method('getAttribute')->willReturn('sqlite');
+        $mockPdo->method('prepare')->willReturn($mockStmt);
+
+        $storage = new PdoStorage($mockPdo, 'test_keys');
+        $result = $storage->get('test');
+
+        $this->assertNull($result);
+    }
+
     public function testGetAllSkipsInvalidJsonRows(): void
     {
         // Insert one valid and one invalid row
@@ -260,5 +278,79 @@ final class PdoStorageTest extends TestCase
         $this->expectException(\PDOException::class);
         $this->expectExceptionMessage('Connection lost');
         $storage->set('key1', ['label' => 'Test']);
+    }
+
+    public function testGetAllSkipsNonArrayRows(): void
+    {
+        // Mock PDOStatement to return a non-array truthy value (edge case)
+        $callCount = 0;
+        $mockStmt = $this->createMock(\PDOStatement::class);
+        $mockStmt->method('execute')->willReturn(true);
+        $mockStmt->method('fetch')
+            ->willReturnCallback(function () use (&$callCount) {
+                $callCount++;
+                if ($callCount === 1) {
+                    // Return a stdClass instead of array (truthy but not array)
+                    return (object) ['key_id' => 'test', 'data' => '{}'];
+                }
+                if ($callCount === 2) {
+                    // Return a valid array row
+                    return ['key_id' => 'valid', 'data' => '{"label": "Valid"}'];
+                }
+                return false;
+            });
+
+        $mockPdo = $this->createMock(PDO::class);
+        $mockPdo->method('getAttribute')->willReturn('sqlite');
+        $mockPdo->method('prepare')->willReturn($mockStmt);
+
+        $storage = new PdoStorage($mockPdo, 'test_keys');
+        $keys = $storage->getAll();
+
+        // Should skip the object row and only include the valid array row
+        $this->assertCount(1, $keys);
+        $this->assertArrayHasKey('valid', $keys);
+    }
+
+    public function testGetAllSkipsRowsWithNonStringKeyId(): void
+    {
+        // Insert a row with null key_id (edge case)
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO mcp_api_keys (key_id, data) VALUES (:key_id, :data)"
+        );
+        $stmt->execute(['key_id' => 'valid', 'data' => '{"label": "Valid"}']);
+
+        // Create a mock that returns a row with integer key_id
+        $callCount = 0;
+        $mockStmt = $this->createMock(\PDOStatement::class);
+        $mockStmt->method('execute')->willReturn(true);
+        $mockStmt->method('fetch')
+            ->willReturnCallback(function () use (&$callCount) {
+                $callCount++;
+                if ($callCount === 1) {
+                    // Return row with integer key_id
+                    return ['key_id' => 123, 'data' => '{"label": "IntKey"}'];
+                }
+                if ($callCount === 2) {
+                    // Return row with null data
+                    return ['key_id' => 'nulldata', 'data' => null];
+                }
+                if ($callCount === 3) {
+                    // Return valid row
+                    return ['key_id' => 'valid', 'data' => '{"label": "Valid"}'];
+                }
+                return false;
+            });
+
+        $mockPdo = $this->createMock(PDO::class);
+        $mockPdo->method('getAttribute')->willReturn('sqlite');
+        $mockPdo->method('prepare')->willReturn($mockStmt);
+
+        $storage = new PdoStorage($mockPdo, 'test_keys');
+        $keys = $storage->getAll();
+
+        // Should skip rows with non-string key_id or null data
+        $this->assertCount(1, $keys);
+        $this->assertArrayHasKey('valid', $keys);
     }
 }

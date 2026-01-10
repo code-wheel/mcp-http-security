@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-01-09
+
+### Added
+- Tests for edge cases in PdoStorage for 100% code coverage
+  - Non-array rows from PDOStatement::fetch
+  - Non-string key_id/data values
+  - Non-string data column in get()
+
 ## [Unreleased]
 
 ### Added
@@ -12,7 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Infection PHP mutation testing
 - PHPBench performance benchmarks
 - Example integrations (Slim 4, standalone, CLI key manager)
-- Comprehensive test coverage (167 tests)
 
 ### Changed
 - Changed `readonly class` to `readonly` properties for PHP 8.1 compatibility
