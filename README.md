@@ -330,3 +330,4 @@ MIT License - see [LICENSE](LICENSE) file.
 ## Credits
 
 Extracted from [drupal/mcp_tools](https://www.drupal.org/project/mcp_tools) by [CodeWheel](https://github.com/code-wheel).
+
